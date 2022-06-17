@@ -4,18 +4,29 @@ import pandas
 import random
 
 
-
 BG_COLOR = "#B1DDC6"
 TIMER = 5000
 
 current_card = {}
+to_learn = {}
+
+try:
+    data = pandas.read_csv('data/words_to_learn.csv')
+except FileNotFoundError:
+    original_data = pandas.read_csv("data/top5000.csv")
+    print(original_data)
+    to_learn = original_data.to_dict(orient="records")
+else:
+    to_learn = data.to_dict(orient="records")
+
+
 data = pandas.read_csv('data/top5000.csv')
-to_learn = data.to_dict(orient="records")
+progress = data
+is_known = True
 
 # Get next random card
 def next_card():
-    global current_card
-    global flip_timer
+    global current_card, flip_timer,is_known
     app_window.after_cancel(flip_timer)
     canvas.itemconfig(1, state="normal")
     current_card = random.choice(to_learn)
@@ -26,23 +37,36 @@ def next_card():
 
 # Flip card with left mouse click on card
 def revert_card(event):
-    global current_card
-    global flip_timer
+    global current_card, flip_timer, is_known
+    is_known = False
     app_window.after_cancel(flip_timer)
     canvas.itemconfig(card_title, text="English")
     canvas.itemconfig(card_word, text=current_card["English"])
     canvas.itemconfig(card_background, image=card_back_img)
     flip_timer = app_window.after(TIMER, func=revert_card_time_out)
 
+
 # Flip card with time out
 def revert_card_time_out():
-    global current_card
-    global flip_timer
+    global current_card, flip_timer, is_known
+    is_known = False
     app_window.after_cancel(flip_timer)
     canvas.itemconfig(card_title, text="English")
     canvas.itemconfig(card_word, text=current_card["English"])
     canvas.itemconfig(card_background, image=card_back_img)
     flip_timer = app_window.after(TIMER, func=revert_card_time_out)
+
+def known():
+    global is_known
+    to_learn.remove(current_card)
+    data = pandas.DataFrame(to_learn)
+    next_card()
+    if is_known == True:
+        print(len(to_learn))
+        data.to_csv("data/words_to_learn.csv", index=False)
+
+    is_known = True
+
 
 # ----- GUI SETUP -----
 app_window = Tk()
@@ -66,11 +90,13 @@ canvas.grid(row=0, column=0, columnspan=3)
 
 
 wrong = PhotoImage(file="false.png")
-nok_button = Button(image=wrong, bg=BG_COLOR, activebackground=BG_COLOR, borderwidth=0, command=next_card)
+nok_button = Button(image=wrong, bg=BG_COLOR, activebackground=BG_COLOR,
+                    borderwidth=0, command=next_card)
 nok_button.grid(row=1, column=0, sticky='n')
 
 right = PhotoImage(file="true.png")
-ok_button = Button(image=right, bg=BG_COLOR, activebackground=BG_COLOR, borderwidth=0, command=next_card)
+ok_button = Button(image=right, bg=BG_COLOR, activebackground=BG_COLOR,
+                   borderwidth=0, command=known)
 ok_button.grid(row=1, column=2, sticky='n')
 
 next_card()
